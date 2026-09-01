@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+<title>공간 스캐너 — 실측 도면</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0c141d; --surface:#131f2b; --surface2:#0f1a24; --line:#233241;
+    --ink:#e9eff5; --muted:#8298ab;
+    --measure:#35d6c0; --measure-ink:#04211d;
+    --calib:#f4b13c; --calib-ink:#2a1c02;
+    --danger:#f27a7a;
+    --disp:'Space Grotesk', -apple-system, sans-serif;
+    --body:-apple-system,"Segoe UI",Roboto,"Noto Sans KR",sans-serif;
+  }
+  *{box-sizing:border-box; -webkit-tap-highlight-color:transparent;}
+  html,body{margin:0;height:100%;background:var(--bg);color:var(--ink);font-family:var(--body);overflow:hidden;}
+  h1,h2,.disp{font-family:var(--disp);letter-spacing:-.4px;}
+
+  .btn{font:inherit;font-weight:600;font-size:15px;padding:13px 18px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);}
+  .btn:active{transform:translateY(1px);}
+  .btn:disabled{opacity:.38;}
+  .btn.measure{background:var(--measure);border-color:var(--measure);color:var(--measure-ink);}
+  .btn.calib{background:var(--calib);border-color:var(--calib);color:var(--calib-ink);}
+  .btn.ghost{background:transparent;}
+  .btn.danger{color:var(--danger);border-color:#3a2630;background:transparent;}
+  .row{display:flex;gap:8px;}
+  .row .btn{flex:1;padding:12px 8px;font-size:14px;}
+
+  /* ---- 인트로 / 모드 선택 ---- */
+  #intro{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;gap:22px;
+         padding:28px;background:
+           radial-gradient(90% 60% at 50% -10%, #16283a 0%, transparent 60%),
+           linear-gradient(180deg,#0c141d,#0a1119);z-index:30;}
+  .brand{display:flex;align-items:baseline;gap:10px;}
+  .brand h1{font-size:26px;font-weight:700;margin:0;}
+  .brand .v{font-family:var(--disp);font-size:13px;color:var(--measure);border:1px solid var(--line);border-radius:20px;padding:2px 9px;}
+  #intro p.lede{margin:0;color:var(--muted);font-size:14px;line-height:1.65;max-width:360px;}
+  .modes{display:flex;flex-direction:column;gap:12px;}
+  .mode{display:flex;gap:14px;align-items:flex-start;text-align:left;padding:16px;border:1px solid var(--line);
+        border-radius:16px;background:var(--surface);width:100%;}
+  .mode:disabled{opacity:.45;}
+  .mode .tick{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:19px;}
+  .mode.ar .tick{background:rgba(53,214,192,.14);color:var(--measure);}
+  .mode.photo .tick{background:rgba(244,177,60,.14);color:var(--calib);}
+  .mode .t{font-family:var(--disp);font-weight:600;font-size:16px;margin-bottom:3px;}
+  .mode .d{font-size:12.5px;color:var(--muted);line-height:1.5;}
+  #capNote{font-size:12.5px;color:var(--muted);line-height:1.55;}
+  #capNote b{color:var(--ink);}
+
+  /* ---- 공통 화면 ---- */
+  .screen{position:fixed;inset:0;display:none;flex-direction:column;z-index:20;}
+  #topbar{position:fixed;top:0;left:0;right:0;padding:calc(10px + env(safe-area-inset-top)) 12px 10px;
+          display:none;justify-content:space-between;align-items:center;z-index:25;
+          background:linear-gradient(180deg,rgba(8,13,19,.85),transparent);}
+  #topbar .who{font-family:var(--disp);font-size:14px;font-weight:600;}
+  #topbar .who small{color:var(--muted);font-weight:500;margin-left:6px;}
+
+  #hud,#photoUI{position:fixed;left:0;right:0;bottom:0;display:flex;flex-direction:column;gap:9px;
+    padding:12px 12px calc(12px + env(safe-area-inset-bottom));z-index:22;
+    background:linear-gradient(180deg,transparent,rgba(7,11,16,.82) 30%);}
+  .status{align-self:center;text-align:center;max-width:94vw;font-size:13px;font-weight:600;
+          background:rgba(9,15,21,.82);border:1px solid var(--line);padding:7px 14px;border-radius:999px;}
+  .hbox{display:flex;align-items:center;justify-content:center;gap:8px;font-size:13px;color:var(--muted);}
+  .hbox input,select{font:inherit;font-size:14px;padding:8px;border-radius:9px;border:1px solid var(--line);
+        background:#0d1720;color:var(--ink);}
+  .hbox input{width:66px;text-align:center;}
+
+  /* AR canvas is created by three.js */
+  #photoCanvas{flex:1;width:100%;touch-action:none;background:#0a1119;display:block;}
+  #photoStage{position:fixed;inset:0;display:flex;flex-direction:column;}
+  .stepdot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--line);margin:0 3px;}
+  .stepdot.on{background:var(--measure);}
+  .stepdot.calib.on{background:var(--calib);}
+
+  /* ---- 도면 시트 ---- */
+  #sheet{position:fixed;inset:0;background:rgba(7,11,16,.96);z-index:40;display:none;flex-direction:column;
+         padding:16px 16px calc(16px + env(safe-area-inset-bottom));overflow:auto;}
+  #sheet h2{font-size:19px;margin:6px 0 12px;}
+  #plan{width:100%;background:#0d1720;border:1px solid var(--line);border-radius:14px;}
+  #summary{margin:12px 0;font-size:13px;color:var(--muted);line-height:1.7;}
+  #summary b{color:var(--ink);}
+  .hint{font-size:12px;color:#5f7488;}
+  .filepick{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none;}
+  #crosshair{position:fixed;left:50%;top:50%;width:26px;height:26px;margin:-13px 0 0 -13px;
+    z-index:23;pointer-events:none;}
+  #crosshair::before,#crosshair::after{content:"";position:absolute;background:rgba(255,255,255,.9);box-shadow:0 0 2px rgba(0,0,0,.6);}
+  #crosshair::before{left:11px;top:0;width:4px;height:26px;border-radius:2px;}
+  #crosshair::after{top:11px;left:0;height:4px;width:26px;border-radius:2px;}
+</style>
+</head>
+<body>
+
+<!-- ============ 인트로 ============ -->
+<div id="intro">
+  <div class="brand"><h1>공간 스캐너</h1><span class="v">웹 · 무료</span></div>
+  <p class="lede">방을 실제 크기(1:1)로 재서 3D 모델과 2D 도면을 만들어. 기기에 맞는 방식을 골라줘.</p>
+
+  <div class="modes">
+    <button id="modeAR" class="mode ar" disabled>
+      <span class="tick">◎</span>
+      <span><span class="t">실시간 AR 스캔</span>
+      <span class="d">폰을 움직이면 바닥·벽을 실측으로 잡아. 안드로이드(갤럭시) 크롬 전용.</span></span>
+    </button>
+    <button id="modePhoto" class="mode photo">
+      <span class="tick">▦</span>
+      <span><span class="t">사진 실측 도면</span>
+      <span class="d">사진 한 장 + 기준물(A4 등)로 원근을 펴서 미터 단위 도면. 아이폰 포함 모든 기기.</span></span>
+    </button>
+  </div>
+
+  <div id="capNote">기기 확인 중…</div>
+</div>
+
+<!-- ============ 상단바 ============ -->
+<div id="topbar">
+  <span class="who" id="whoLabel">—</span>
+  <button id="exitBtn" class="btn ghost" style="padding:8px 12px;">✕ 종료</button>
+</div>
+
+<!-- ============ AR 화면 (three.js가 캔버스 생성) ============ -->
+<div id="arScreen" class="screen">
+  <div id="crosshair" aria-hidden="true"></div>
+  <div id="hud">
+    <div class="status" id="arStatus">바닥을 천천히 비춰줘…</div>
+    <div class="hbox">
+      <span id="arModeTag" style="color:var(--measure);font-weight:700;">방 외곽선</span>
+      <span>·</span><span>벽 높이(m)</span>
+      <input id="arWallH" type="number" value="2.4" min="1" max="6" step="0.05" inputmode="decimal">
+    </div>
+    <div class="row">
+      <button id="arAdd" class="btn measure">추가</button>
+      <button id="arUndo" class="btn">되돌리기</button>
+      <button id="arMode" class="btn">모드 전환</button>
+    </div>
+    <div class="row">
+      <button id="arPlane" class="btn">감지 평면: 켜짐</button>
+      <button id="arAutoFloor" class="btn">바닥 자동</button>
+    </div>
+    <div class="row">
+      <button id="arBuild" class="btn">완성 · 도면</button>
+      <button id="arClear" class="btn ghost">전체 지우기</button>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 사진 화면 ============ -->
+<div id="photoScreen" class="screen">
+  <div id="photoStage">
+    <canvas id="photoCanvas"></canvas>
+  </div>
+  <div id="photoUI">
+    <div class="status" id="phStatus">사진을 먼저 불러와줘.</div>
+    <div class="hbox" id="calibRow">
+      <span>기준물</span>
+      <select id="refPreset">
+        <option value="0.210,0.297">A4 (21×29.7cm)</option>
+        <option value="0.297,0.420">A3 (29.7×42cm)</option>
+        <option value="custom">직접 입력(cm)</option>
+      </select>
+      <input id="refW" type="number" placeholder="가로" inputmode="decimal" style="display:none;">
+      <input id="refH" type="number" placeholder="세로" inputmode="decimal" style="display:none;">
+    </div>
+    <div class="hbox">
+      <span><span class="stepdot calib on" id="dot1"></span><span class="stepdot" id="dot2"></span></span>
+      <span id="stepText">1. 기준물 보정</span>
+      <span>·</span><span>벽 높이(m)</span>
+      <input id="phWallH" type="number" value="2.4" min="1" max="6" step="0.05" inputmode="decimal">
+    </div>
+    <div class="row">
+      <button id="phShot" class="btn calib">사진 불러오기</button>
+      <button id="phUndo" class="btn">되돌리기</button>
+      <button id="phReset" class="btn ghost">처음부터</button>
+    </div>
+    <div class="row">
+      <button id="phBuild" class="btn measure" disabled>도면 만들기</button>
+    </div>
+  </div>
+</div>
+<input id="filePick" class="filepick" type="file" accept="image/*" capture="environment">
+
+<!-- ============ 결과 도면 ============ -->
+<div id="sheet">
+  <h2>2D 실측 도면</h2>
+  <svg id="plan" viewBox="0 0 600 600" preserveAspectRatio="xMidYMid meet"></svg>
+  <div id="summary"></div>
+  <div class="row">
+    <button id="dlSvg" class="btn">도면 SVG</button>
+    <button id="dlGlb" class="btn">3D GLB</button>
+    <button id="dlJson" class="btn">좌표 JSON</button>
+  </div>
+  <div class="row"><button id="closeSheet" class="btn measure">계속하기</button></div>
+</div>
+
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.162.0/build/three.module.js",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.162.0/examples/jsm/"
+}}
+</script>
+
+<script type="module">
+import * as THREE from 'three';
+import { GLTFExporter } from 'three/addons/exporters/GLTFExporter.js';
+
+const $ = id => document.getElementById(id);
+
+/* ======================================================================
+   공유: 좌표는 {x,y} = (월드 X, 깊이). 3D는 (x, 높이, y).
+   ====================================================================== */
+function dist(a,b){ return Math.hypot(a.x-b.x, a.y-b.y); }
+function polygonArea(pts){ let s=0; for(let i=0;i<pts.length;i++){const p=pts[i],q=pts[(i+1)%pts.length]; s+=p.x*q.y-q.x*p.y;} return Math.abs(s)/2; }
+function download(blob,name){ const u=URL.createObjectURL(blob); const a=document.createElement('a'); a.href=u; a.download=name; a.click(); setTimeout(()=>URL.revokeObjectURL(u),1000); }
+
+// 방 3D 그룹 (AR 표시 + GLB 내보내기 공용)
+function buildRoomGroup(corners, objects, h){
+  const g = new THREE.Group();
+  if(corners.length>=3){
+    const contour = corners.map(c=>new THREE.Vector2(c.x,c.y));
+    const faces = THREE.ShapeUtils.triangulateShape(contour, []);
+    const pos=[], idx=[];
+    corners.forEach(c=>pos.push(c.x,0,c.y));
+    faces.forEach(f=>idx.push(f[0],f[1],f[2]));
+    const fg=new THREE.BufferGeometry();
+    fg.setAttribute('position', new THREE.Float32BufferAttribute(pos,3));
+    fg.setIndex(idx); fg.computeVertexNormals();
+    g.add(new THREE.Mesh(fg, new THREE.MeshStandardMaterial({color:0x1f6feb,transparent:true,opacity:.28,side:THREE.DoubleSide})));
+
+    const wm=new THREE.MeshStandardMaterial({color:0x9ec5ff,transparent:true,opacity:.32,side:THREE.DoubleSide});
+    for(let i=0;i<corners.length;i++){
+      const a=corners[i], b=corners[(i+1)%corners.length];
+      const wg=new THREE.BufferGeometry();
+      wg.setAttribute('position', new THREE.Float32BufferAttribute([
+        a.x,0,a.y, b.x,0,b.y, b.x,h,b.y,  a.x,0,a.y, b.x,h,b.y, a.x,h,a.y ],3));
+      wg.computeVertexNormals();
+      g.add(new THREE.Mesh(wg, wm));
+    }
+  }
+  (objects||[]).forEach(o=>{
+    const w=Math.abs(o.bx-o.ax), d=Math.abs(o.by-o.ay);
+    const box=new THREE.Mesh(new THREE.BoxGeometry(Math.max(w,.05),o.h,Math.max(d,.05)),
+      new THREE.MeshStandardMaterial({color:0xf4b13c,transparent:true,opacity:.5}));
+    box.position.set((o.ax+o.bx)/2, o.h/2, (o.ay+o.by)/2);
+    g.add(box);
+  });
+  return g;
+}
+
+// 결과 시트: 2D 도면 그리기 + 내보내기
+let lastResult = null; // {corners, objects, h, source}
+function showResult(corners, objects, h, source){
+  lastResult = {corners, objects, h, source};
+  drawPlan(corners, objects);
+  const area = polygonArea(corners);
+  const scaleNote = source==='ar'
+    ? 'ARCore 실측 스케일(1:1). 트래킹 상태 따라 오차 있음.'
+    : '기준물 보정 실측 스케일. 바닥이 한 평면·모든 모서리가 사진에 보일 때 정확.';
+  $('summary').innerHTML =
+    `면적 <b>${area.toFixed(2)} m²</b> · 코너 ${corners.length} · 물체 ${objects.length} · 벽높이 ${h.toFixed(2)}m<br>`+
+    `<span style="color:#5f7488">※ ${scaleNote}</span>`;
+  $('sheet').style.display='flex';
+}
+function drawPlan(corners, objects){
+  const svg=$('plan'), size=600, pad=52;
+  const xs=corners.map(c=>c.x), ys=corners.map(c=>c.y);
+  const minX=Math.min(...xs), maxX=Math.max(...xs), minY=Math.min(...ys), maxY=Math.max(...ys);
+  const sx=Math.max(maxX-minX,.001), sy=Math.max(maxY-minY,.001);
+  const sc=Math.min((size-2*pad)/sx,(size-2*pad)/sy);
+  const TX=x=>pad+(x-minX)*sc, TY=y=>pad+(y-minY)*sc;
+  let s=`<rect width="600" height="600" fill="#0d1720"/>`;
+  s+=`<polygon points="${corners.map(c=>`${TX(c.x).toFixed(1)},${TY(c.y).toFixed(1)}`).join(' ')}" fill="#35d6c022" stroke="#35d6c0" stroke-width="2.5"/>`;
+  for(let i=0;i<corners.length;i++){
+    const a=corners[i], b=corners[(i+1)%corners.length], L=dist(a,b);
+    const mx=(TX(a.x)+TX(b.x))/2, my=(TY(a.y)+TY(b.y))/2;
+    s+=`<circle cx="${TX(a.x).toFixed(1)}" cy="${TY(a.y).toFixed(1)}" r="4" fill="#35d6c0"/>`;
+    s+=`<text x="${mx.toFixed(1)}" y="${(my-5).toFixed(1)}" fill="#cfe3ff" font-size="13" text-anchor="middle" font-family="monospace">${L.toFixed(2)}m</text>`;
+  }
+  (objects||[]).forEach(o=>{
+    const x=TX(Math.min(o.ax,o.bx)), y=TY(Math.min(o.ay,o.by));
+    const w=Math.abs(TX(o.bx)-TX(o.ax)), h=Math.abs(TY(o.by)-TY(o.ay));
+    s+=`<rect x="${x.toFixed(1)}" y="${y.toFixed(1)}" width="${w.toFixed(1)}" height="${h.toFixed(1)}" fill="#f4b13c55" stroke="#f4b13c" stroke-width="1.5"/>`;
+  });
+  svg.innerHTML=s;
+}
+$('dlSvg').addEventListener('click',()=>download(new Blob([`<?xml version="1.0"?>\n`+$('plan').outerHTML],{type:'image/svg+xml'}),'floorplan.svg'));
+$('dlJson').addEventListener('click',()=>{
+  const r=lastResult; download(new Blob([JSON.stringify({unit:'meters',height:r.h,corners:r.corners,objects:r.objects,area:polygonArea(r.corners),source:r.source},null,2)],{type:'application/json'}),'room.json');
+});
+$('dlGlb').addEventListener('click',()=>{
+  const r=lastResult; if(!r||r.corners.length<3){setStatusAll('먼저 도면을 만들어줘.');return;}
+  const grp=buildRoomGroup(r.corners,r.objects,r.h);
+  new GLTFExporter().parse(grp,res=>download(new Blob([res],{type:'model/gltf-binary'}),'room.glb'),
+    err=>setStatusAll('GLB 실패: '+err),{binary:true});
+});
+$('closeSheet').addEventListener('click',()=>$('sheet').style.display='none');
+function setStatusAll(t){ $('arStatus').textContent=t; $('phStatus').textContent=t; }
+
+/* ======================================================================
+   기기 감지 + 라우팅
+   ====================================================================== */
+(async function detect(){
+  let arOK=false;
+  if('xr' in navigator){ try{ arOK=await navigator.xr.isSessionSupported('immersive-ar'); }catch(e){} }
+  if(arOK){
+    $('modeAR').disabled=false;
+    $('capNote').innerHTML='이 기기는 <b>AR 실시간 스캔</b>이 돼. 정밀도가 제일 높아. 사진 방식도 언제든 쓸 수 있어.';
+  }else{
+    $('capNote').innerHTML='이 기기는 WebXR AR 미지원(아이폰/데스크톱). <b>사진 실측</b>으로 바로 가면 돼 — 무료로 미터 단위 도면이 나와.';
+  }
+})();
+$('modeAR').addEventListener('click',()=>startAR());
+$('modePhoto').addEventListener('click',()=>startPhoto());
+$('exitBtn').addEventListener('click',()=>{
+  if(xrSession){ xrSession.end(); return; }
+  closePhoto();
+});
+function enterScreen(which,label){
+  $('intro').style.display='none';
+  $('topbar').style.display='flex';
+  $('whoLabel').innerHTML=label;
+  $('arScreen').style.display = which==='ar'?'flex':'none';
+  $('photoScreen').style.display = which==='photo'?'flex':'none';
+}
+function backToIntro(){
+  $('topbar').style.display='none';
+  $('arScreen').style.display='none';
+  $('photoScreen').style.display='none';
+  $('intro').style.display='flex';
+}
+
+/* ======================================================================
+   모드 1: WebXR AR (안드로이드/갤럭시)
+   ====================================================================== */
+let renderer,scene,camera,reticle,hitTestSource=null,reticleVisible=false,xrSession=null;
+let traceGroup,buildGroup,planesGroup;
+const planeMap=new Map(); let showPlanes=true;
+let arCorners=[], arObjects=[], arPending=[], arMode='room';
+
+async function startAR(){
+  scene=new THREE.Scene();
+  camera=new THREE.PerspectiveCamera(70,innerWidth/innerHeight,0.01,40);
+  renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});
+  renderer.setPixelRatio(devicePixelRatio); renderer.setSize(innerWidth,innerHeight);
+  renderer.xr.enabled=true; document.body.appendChild(renderer.domElement);
+  renderer.domElement.style.position='fixed'; renderer.domElement.style.inset='0'; renderer.domElement.style.zIndex='15';
+
+  scene.add(new THREE.HemisphereLight(0xffffff,0x223344,1.2));
+  const dl=new THREE.DirectionalLight(0xffffff,.9); dl.position.set(1,3,2); scene.add(dl);
+
+  reticle=new THREE.Group();
+  reticle.add(new THREE.Mesh(new THREE.RingGeometry(0.075,0.095,48).rotateX(-Math.PI/2),
+    new THREE.MeshBasicMaterial({color:0xffffff})));
+  const rdot=new THREE.Mesh(new THREE.CircleGeometry(0.013,24).rotateX(-Math.PI/2),
+    new THREE.MeshBasicMaterial({color:0xff5a5a})); rdot.position.y=0.002; reticle.add(rdot);
+  reticle.matrixAutoUpdate=false; reticle.visible=false; scene.add(reticle);
+  traceGroup=new THREE.Group(); buildGroup=new THREE.Group(); planesGroup=new THREE.Group();
+  scene.add(traceGroup,buildGroup,planesGroup);
+
+  try{
+    xrSession=await navigator.xr.requestSession('immersive-ar',{
+      requiredFeatures:['local-floor','hit-test'],
+      optionalFeatures:['dom-overlay','plane-detection'],
+      domOverlay:{root:document.body}
+    });
+  }catch(e){ setStatusAll('세션 실패: '+e.message+' (HTTPS 필요)'); return; }
+
+  renderer.xr.setReferenceSpaceType('local-floor');
+  await renderer.xr.setSession(xrSession);
+  const vs=await xrSession.requestReferenceSpace('viewer');
+  hitTestSource=await xrSession.requestHitTestSource({space:vs});
+  xrSession.addEventListener('end',onAREnd);
+
+  arCorners=[];arObjects=[];arPending=[];arMode='room';
+  enterScreen('ar','실시간 AR <small>1:1 실측</small>');
+  setStatusAll('중앙 십자선을 바닥 모서리에 겨누고 "추가"를 눌러.');
+  renderer.setAnimationLoop(onARFrame);
+}
+function onAREnd(){
+  renderer.setAnimationLoop(null); hitTestSource=null; xrSession=null;
+  if(renderer?.domElement) renderer.domElement.remove();
+  planeMap.clear();
+  backToIntro();
+}
+function onARFrame(t,frame){
+  if(frame && hitTestSource){
+    const ref=renderer.xr.getReferenceSpace();
+    const hits=frame.getHitTestResults(hitTestSource);
+    if(hits.length){ const p=hits[0].getPose(ref); reticle.visible=true; reticle.matrix.fromArray(p.transform.matrix); reticleVisible=true; }
+    else { reticle.visible=false; reticleVisible=false; }
+    updatePlanes(frame,ref); planesGroup.visible=showPlanes;
+  }
+  renderer.render(scene,camera);
+}
+function reticleXY(){ const p=new THREE.Vector3().setFromMatrixPosition(reticle.matrix); return {x:p.x,y:p.z}; }
+function refreshARTrace(){
+  traceGroup.clear();
+  const mark=(x,y,c)=>{
+    const g=new THREE.Group();
+    const s=new THREE.Mesh(new THREE.SphereGeometry(.028,14,14),new THREE.MeshBasicMaterial({color:c})); s.position.set(x,.02,y); g.add(s);
+    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,0,y),new THREE.Vector3(x,.14,y)]),new THREE.LineBasicMaterial({color:c})));
+    return g;
+  };
+  arCorners.forEach(c=>traceGroup.add(mark(c.x,c.y,0x35d6c0)));
+  if(arCorners.length>=2){
+    const pts=arCorners.map(c=>new THREE.Vector3(c.x,.02,c.y));
+    if(arCorners.length>=3) pts.push(pts[0].clone());
+    traceGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x35d6c0})));
+  }
+  arPending.forEach(p=>traceGroup.add(mark(p.x,p.y,0xf4b13c)));
+}
+function clampH(v){ return Math.min(Math.max(parseFloat(v)||2.4,1),6); }
+
+$('arAdd').addEventListener('click',()=>{
+  if(!reticleVisible){ setStatusAll('바닥이 아직 안 잡혔어.'); return; }
+  const p=reticleXY();
+  if(arMode==='room'){ arCorners.push(p); refreshARTrace();
+    if(arCorners.length>=2) setStatusAll(`코너 ${arCorners.length} · 방금 벽 ${dist(arCorners.at(-2),arCorners.at(-1)).toFixed(2)}m`);
+    else setStatusAll(`코너 ${arCorners.length} · 다음 모서리로 이동`);
+  }else{ arPending.push(p);
+    if(arPending.length===2){ arObjects.push({ax:arPending[0].x,ay:arPending[0].y,bx:arPending[1].x,by:arPending[1].y,h:clampH($('arWallH').value)}); arPending=[]; refreshARTrace(); setStatusAll(`물체 ${arObjects.length}개`); }
+    else setStatusAll('물체 반대편 모서리 한 번 더');
+  }
+});
+$('arUndo').addEventListener('click',()=>{
+  if(arMode==='object'&&arPending.length)arPending.pop();
+  else if(arMode==='object'&&arObjects.length)arObjects.pop();
+  else if(arCorners.length)arCorners.pop();
+  refreshARTrace(); setStatusAll('되돌림');
+});
+$('arMode').addEventListener('click',()=>{
+  arMode=arMode==='room'?'object':'room'; arPending=[];
+  $('arModeTag').textContent=arMode==='room'?'방 외곽선':'물체 배치';
+  setStatusAll(arMode==='room'?'방 모서리 모드':'물체: 바닥 두 점(대각)');
+});
+$('arClear').addEventListener('click',()=>{ arCorners=[];arObjects=[];arPending=[]; buildGroup.clear(); refreshARTrace(); setStatusAll('전부 지웠어.'); });
+$('arPlane').addEventListener('click',()=>{ showPlanes=!showPlanes; $('arPlane').textContent='감지 평면: '+(showPlanes?'켜짐':'꺼짐'); });
+$('arAutoFloor').addEventListener('click',autoFillFloor);
+$('arBuild').addEventListener('click',()=>{
+  if(arCorners.length<3){ setStatusAll('코너 최소 3개.'); return; }
+  const h=clampH($('arWallH').value);
+  buildGroup.clear(); buildGroup.add(buildRoomGroup(arCorners,arObjects,h));
+  showResult(arCorners.map(c=>({...c})),arObjects.map(o=>({...o})),h,'ar');
+});
+function updatePlanes(frame,ref){
+  const det=frame.detectedPlanes; if(!det) return;
+  for(const [pl,rec] of planeMap){ if(!det.has(pl)){ planesGroup.remove(rec.mesh); rec.mesh.geometry.dispose(); planeMap.delete(pl); } }
+  for(const pl of det){
+    const rec=planeMap.get(pl);
+    if(rec && rec.time===pl.lastChangedTime) continue;
+    const pose=frame.getPose(pl.planeSpace,ref); if(!pose||!pl.polygon?.length) continue;
+    const m=new THREE.Matrix4().fromArray(pose.transform.matrix);
+    const pts=pl.polygon.map(p=>new THREE.Vector3(p.x,p.y,p.z).applyMatrix4(m));
+    let ay=0; pts.forEach(v=>ay+=v.y); ay/=pts.length;
+    const col=pl.orientation==='vertical'?0x3f5a78:(ay<0.6?0x385a52:0x445260);
+    if(rec){ planesGroup.remove(rec.mesh); rec.mesh.geometry.dispose(); }
+    const line=new THREE.LineLoop(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:col}));
+    line.userData={orientation:pl.orientation,avgY:ay,worldPts:pts};
+    planesGroup.add(line); planeMap.set(pl,{mesh:line,time:pl.lastChangedTime});
+  }
+}
+function autoFillFloor(){
+  let best=null,bestA=0;
+  for(const rec of planeMap.values()){ const u=rec.mesh.userData;
+    if(u.orientation!=='horizontal'||u.avgY>0.6) continue;
+    const a=polygonArea(u.worldPts.map(v=>({x:v.x,y:v.z}))); if(a>bestA){bestA=a;best=u;} }
+  if(!best){ setStatusAll('감지된 바닥 평면이 없어. 더 비춰줘.'); return; }
+  arCorners=best.worldPts.map(v=>({x:v.x,y:v.z})); refreshARTrace();
+  setStatusAll(`바닥 자동 채움 · 코너 ${arCorners.length} (되돌리기로 다듬어)`);
+}
+
+/* ======================================================================
+   모드 2: 사진 실측 (호모그래피) — 아이폰 포함 전 기기
+   ====================================================================== */
+const cv=$('photoCanvas'), ctx=cv.getContext('2d');
+let img=null, fit={ox:0,oy:0,scale:1};      // 표시→이미지 좌표 매핑(CSS px)
+let phStage='need-image';                    // need-image | calib | trace | ready
+let calibPts=[], tracePts=[], H=null;
+let phCorners=[];                            // 미터 단위 결과
+
+function startPhoto(){
+  enterScreen('photo','사진 실측 <small>기준물 보정</small>');
+  resetPhoto();
+}
+function closePhoto(){ backToIntro(); }
+function resetPhoto(){
+  img=null; phStage='need-image'; calibPts=[]; tracePts=[]; H=null; phCorners=[];
+  $('phBuild').disabled=true; updateSteps(); drawPhoto();
+  $('phStatus').textContent='사진을 불러와줘. (아이폰은 카메라로 바로 촬영 가능)';
+}
+$('refPreset').addEventListener('change',()=>{
+  const c=$('refPreset').value==='custom';
+  $('refW').style.display=$('refH').style.display=c?'inline-block':'none';
+});
+$('phShot').addEventListener('click',()=>$('filePick').click());
+$('filePick').addEventListener('change',async e=>{
+  const f=e.target.files?.[0]; e.target.value='';
+  if(!f) return;
+  $('phStatus').textContent='사진 불러오는 중…';
+  try{
+    img = await loadImageFile(f);
+    phStage='calib'; calibPts=[]; tracePts=[]; H=null; phCorners=[];
+    $('phBuild').disabled=true;
+    // 레이아웃이 잡힌 뒤 캔버스 크기 확정
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{ sizeCanvas(); drawPhoto(); }));
+    updateSteps();
+    $('phStatus').textContent='기준물의 네 모서리를 좌상→우상→우하→좌하 순서로 탭';
+  }catch(err){
+    $('phStatus').textContent='사진을 불러오지 못했어 ('+(err?.message||err)+'). 다른 사진으로 시도하거나 사파리에서 열어줘.';
+  }
+});
+
+// 아이폰 HEIC/EXIF 회전까지 처리하는 견고한 디코드
+async function loadImageFile(f){
+  if('createImageBitmap' in window){
+    try{ return await createImageBitmap(f,{imageOrientation:'from-image'}); }
+    catch(_){ try{ return await createImageBitmap(f); }catch(__){} }
+  }
+  const dataUrl = await new Promise((res,rej)=>{ const r=new FileReader();
+    r.onload=()=>res(r.result); r.onerror=()=>rej(new Error('read fail')); r.readAsDataURL(f); });
+  return await new Promise((res,rej)=>{ const i=new Image();
+    i.onload=()=>res(i); i.onerror=()=>rej(new Error('decode fail')); i.decoding='sync'; i.src=dataUrl; });
+}
+
+function sizeCanvas(){
+  const dpr=devicePixelRatio||1;
+  const w=cv.clientWidth||innerWidth;
+  const h=cv.clientHeight||Math.round(innerHeight*0.6);
+  cv.width=Math.round(w*dpr); cv.height=Math.round(h*dpr); ctx.setTransform(dpr,0,0,dpr,0,0);
+  if(img){ const iw=img.width, ih=img.height, s=Math.min(w/iw,h/ih);
+    fit={scale:s, ox:(w-iw*s)/2, oy:(h-ih*s)/2}; }
+}
+addEventListener('resize',()=>{ if($('photoScreen').style.display==='flex'){ sizeCanvas(); drawPhoto(); }});
+
+function toImg(cx,cy){ return {x:(cx-fit.ox)/fit.scale, y:(cy-fit.oy)/fit.scale}; }
+function toDisp(ix,iy){ return {x:fit.ox+ix*fit.scale, y:fit.oy+iy*fit.scale}; }
+
+cv.addEventListener('pointerdown',ev=>{
+  if(!img) return;
+  const r=cv.getBoundingClientRect();
+  const p=toImg(ev.clientX-r.left, ev.clientY-r.top);
+  if(p.x<0||p.y<0||p.x>img.width||p.y>img.height) return;
+  if(phStage==='calib'){
+    if(calibPts.length<4){ calibPts.push(p);
+      if(calibPts.length===4){ computeH(); }
+      else $('phStatus').textContent=`기준물 모서리 ${calibPts.length}/4`;
+    }
+  }else if(phStage==='trace'||phStage==='ready'){
+    tracePts.push(p); recomputeCorners();
+    $('phStatus').textContent = phCorners.length>=2
+      ? `방 코너 ${phCorners.length} · 방금 벽 ${dist(phCorners.at(-2),phCorners.at(-1)).toFixed(2)}m`
+      : `방 코너 ${phCorners.length} · 계속 탭`;
+    $('phBuild').disabled = phCorners.length<3;
+  }
+  drawPhoto();
+});
+
+function refDims(){
+  const v=$('refPreset').value;
+  if(v==='custom'){ const w=(parseFloat($('refW').value)||21)/100, h=(parseFloat($('refH').value)||29.7)/100; return {w,h}; }
+  const [w,h]=v.split(',').map(Number); return {w,h};
+}
+function computeH(){
+  const {w,h}=refDims();
+  const src=calibPts.map(p=>[p.x,p.y]);
+  const dst=[[0,0],[w,0],[w,h],[0,h]];       // 좌상,우상,우하,좌하
+  H=solveHomography(src,dst);
+  phStage='trace'; updateSteps();
+  $('phStatus').textContent='보정 완료 ✓ 이제 방 바닥 모서리를 순서대로 탭';
+}
+function recomputeCorners(){ phCorners=tracePts.map(p=>applyH(H,p.x,p.y)); }
+
+$('phUndo').addEventListener('click',()=>{
+  if(phStage==='calib'&&calibPts.length){ calibPts.pop(); }
+  else if(tracePts.length){ tracePts.pop(); recomputeCorners(); $('phBuild').disabled=phCorners.length<3; }
+  drawPhoto();
+});
+$('phReset').addEventListener('click',resetPhoto);
+$('phBuild').addEventListener('click',()=>{
+  if(phCorners.length<3) return;
+  const h=clampH($('phWallH').value);
+  showResult(phCorners.map(c=>({...c})),[],h,'photo');
+});
+
+function updateSteps(){
+  const calibOn=phStage==='calib';
+  $('dot1').className='stepdot calib'+((calibOn||phStage==='trace'||phStage==='ready')?' on':'');
+  $('dot2').className='stepdot'+((phStage==='trace'||phStage==='ready')?' on':'');
+  $('stepText').textContent = calibOn?'1. 기준물 보정':(phStage==='need-image'?'사진 필요':'2. 방 모서리');
+  $('calibRow').style.opacity = phStage==='need-image'||calibOn?'1':'.4';
+}
+function drawPhoto(){
+  const w=cv.clientWidth, h=cv.clientHeight;
+  ctx.clearRect(0,0,w,h); ctx.fillStyle='#0a1119'; ctx.fillRect(0,0,w,h);
+  if(!img){ ctx.fillStyle='#5f7488'; ctx.font='14px sans-serif'; ctx.textAlign='center';
+    ctx.fillText('사진을 불러오면 여기에 표시돼', w/2, h/2); return; }
+  ctx.drawImage(img, fit.ox, fit.oy, img.width*fit.scale, img.height*fit.scale);
+
+  // 기준물(앰버)
+  if(calibPts.length){
+    ctx.strokeStyle='#f4b13c'; ctx.fillStyle='#f4b13c'; ctx.lineWidth=2;
+    ctx.beginPath();
+    calibPts.forEach((p,i)=>{ const d=toDisp(p.x,p.y); i?ctx.lineTo(d.x,d.y):ctx.moveTo(d.x,d.y); });
+    if(calibPts.length===4) ctx.closePath();
+    ctx.stroke();
+    calibPts.forEach((p,i)=>{ const d=toDisp(p.x,p.y);
+      ctx.beginPath(); ctx.arc(d.x,d.y,5,0,7); ctx.fill();
+      ctx.fillStyle='#04211d'; ctx.font='bold 11px monospace'; ctx.textAlign='center'; ctx.fillText(i+1,d.x,d.y+4); ctx.fillStyle='#f4b13c'; });
+  }
+  // 방 외곽선(청록)
+  if(tracePts.length){
+    ctx.strokeStyle='#35d6c0'; ctx.fillStyle='#35d6c0'; ctx.lineWidth=2.5;
+    ctx.beginPath();
+    tracePts.forEach((p,i)=>{ const d=toDisp(p.x,p.y); i?ctx.lineTo(d.x,d.y):ctx.moveTo(d.x,d.y); });
+    if(tracePts.length>=3) ctx.closePath();
+    ctx.stroke();
+    // 벽 길이 라벨
+    for(let i=0;i<tracePts.length;i++){
+      const d=toDisp(tracePts[i].x,tracePts[i].y);
+      ctx.beginPath(); ctx.arc(d.x,d.y,4,0,7); ctx.fill();
+      if(H && i<tracePts.length){ const a=phCorners[i], b=phCorners[(i+1)%phCorners.length];
+        if(phCorners.length>=2 && (i<phCorners.length-1 || phCorners.length>=3)){
+          const nb=toDisp(tracePts[(i+1)%tracePts.length].x,tracePts[(i+1)%tracePts.length].y);
+          ctx.fillStyle='#cfe3ff'; ctx.font='12px monospace'; ctx.textAlign='center';
+          ctx.fillText(dist(a,b).toFixed(2)+'m',(d.x+nb.x)/2,(d.y+nb.y)/2-6); ctx.fillStyle='#35d6c0';
+        }
+      }
+    }
+  }
+}
+
+// ---- 호모그래피 (4점 DLT) ----
+function solveHomography(src,dst){
+  const A=[],b=[];
+  for(let i=0;i<4;i++){ const [x,y]=src[i],[X,Y]=dst[i];
+    A.push([x,y,1,0,0,0,-X*x,-X*y]); b.push(X);
+    A.push([0,0,0,x,y,1,-Y*x,-Y*y]); b.push(Y); }
+  const h=gauss(A,b);
+  return [[h[0],h[1],h[2]],[h[3],h[4],h[5]],[h[6],h[7],1]];
+}
+function gauss(A,b){
+  const n=b.length, M=A.map((r,i)=>[...r,b[i]]);
+  for(let c=0;c<n;c++){
+    let p=c; for(let r=c+1;r<n;r++) if(Math.abs(M[r][c])>Math.abs(M[p][c])) p=r;
+    [M[c],M[p]]=[M[p],M[c]];
+    const pv=M[c][c]; if(Math.abs(pv)<1e-12) continue;
+    for(let j=c;j<=n;j++) M[c][j]/=pv;
+    for(let r=0;r<n;r++){ if(r===c) continue; const f=M[r][c]; for(let j=c;j<=n;j++) M[r][j]-=f*M[c][j]; }
+  }
+  return M.map(r=>r[n]);
+}
+function applyH(H,x,y){
+  const X=H[0][0]*x+H[0][1]*y+H[0][2], Y=H[1][0]*x+H[1][1]*y+H[1][2], W=H[2][0]*x+H[2][1]*y+H[2][2];
+  return {x:X/W, y:Y/W};
+}
+</script>
+</body>
+</html>
