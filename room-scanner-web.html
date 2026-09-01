@@ -391,7 +391,7 @@ function onARFrame(t,frame){
     if(hits.length){
       const p=hits[0].getPose(ref); reticle.visible=true;
       reticle.matrix.fromArray(p.transform.matrix); reticleVisible=true;
-      arLastHit={x:p.transform.position.x, y:p.transform.position.z};
+      arLastHit={x:p.transform.position.x, y:p.transform.position.z, h:p.transform.position.y};
     } else { reticle.visible=false; reticleVisible=false; arLastHit=null; }
 
     // 앵커로 고정된 코너를 최신 포즈로 갱신 → 트래킹 드리프트 보정
@@ -399,8 +399,8 @@ function onARFrame(t,frame){
     for(let i=0;i<arCornerAnchors.length;i++){
       const a=arCornerAnchors[i]; if(!a) continue;
       const ap=frame.getPose(a.anchorSpace, ref); if(!ap) continue;
-      const nx=ap.transform.position.x, ny=ap.transform.position.z;
-      if(Math.abs(nx-arCorners[i].x)>0.001 || Math.abs(ny-arCorners[i].y)>0.001){ arCorners[i]={x:nx,y:ny}; moved=true; }
+      const nx=ap.transform.position.x, ny=ap.transform.position.z, nh=ap.transform.position.y;
+      if(Math.abs(nx-arCorners[i].x)>0.001 || Math.abs(ny-arCorners[i].y)>0.001){ arCorners[i]={x:nx,y:ny,h:nh}; moved=true; }
     }
     if(moved) refreshARTrace();
 
@@ -413,7 +413,7 @@ function onARFrame(t,frame){
   renderer.render(scene,camera);
 }
 function doPlace(hit){
-  const p={x:arLastHit.x, y:arLastHit.y};
+  const p={x:arLastHit.x, y:arLastHit.y, h:arLastHit.h};
   if(arMode==='room'){
     const idx=arCorners.length; arCorners.push(p); arCornerAnchors.push(null); refreshARTrace();
     if(hit.createAnchor) hit.createAnchor().then(a=>{ if(idx<arCornerAnchors.length) arCornerAnchors[idx]=a; }).catch(()=>{});
@@ -430,11 +430,11 @@ function updateLive(){
   const anchor = (arMode==='object'&&arPending.length===1)?arPending[0]
                : (arMode==='room'&&arCorners.length>=1)?arCorners[arCorners.length-1]:null;
   if(anchor && reticleVisible && arLastHit){
-    const a=new THREE.Vector3(anchor.x,.02,anchor.y), b=new THREE.Vector3(arLastHit.x,.02,arLastHit.y);
+    const a=new THREE.Vector3(anchor.x, anchor.h??.02, anchor.y), b=new THREE.Vector3(arLastHit.x, arLastHit.h??.02, arLastHit.y);
     arLive.geometry.setFromPoints([a,b]); arLive.visible=true;
     const d=Math.hypot(a.x-b.x, a.z-b.z);
     drawDist(d<1?`${Math.round(d*100)} cm`:`${d.toFixed(2)} m`);
-    arDistSprite.position.set((a.x+b.x)/2, .16, (a.z+b.z)/2); arDistSprite.visible=true;
+    arDistSprite.position.set((a.x+b.x)/2, Math.max(a.y,b.y)+0.1, (a.z+b.z)/2); arDistSprite.visible=true;
   } else { arLive.visible=false; if(arDistSprite) arDistSprite.visible=false; }
 }
 function drawDist(txt){
@@ -449,19 +449,17 @@ function drawDist(txt){
 function refreshARTrace(){
   traceGroup.traverse(o=>{ if(o.geometry)o.geometry.dispose(); if(o.material)o.material.dispose(); });
   traceGroup.clear();
-  const mark=(x,y,c)=>{
-    const g=new THREE.Group();
-    const s=new THREE.Mesh(new THREE.SphereGeometry(.028,14,14),new THREE.MeshBasicMaterial({color:c})); s.position.set(x,.02,y); g.add(s);
-    g.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(x,0,y),new THREE.Vector3(x,.14,y)]),new THREE.LineBasicMaterial({color:c})));
-    return g;
+  const mark=(x,h,y,c)=>{
+    const s=new THREE.Mesh(new THREE.SphereGeometry(.03,16,16),new THREE.MeshBasicMaterial({color:c}));
+    s.position.set(x,h,y); return s;
   };
-  arCorners.forEach(c=>traceGroup.add(mark(c.x,c.y,0x35d6c0)));
+  arCorners.forEach(c=>traceGroup.add(mark(c.x,c.h??.02,c.y,0x35d6c0)));
   if(arCorners.length>=2){
-    const pts=arCorners.map(c=>new THREE.Vector3(c.x,.02,c.y));
+    const pts=arCorners.map(c=>new THREE.Vector3(c.x,c.h??.02,c.y));
     if(arCorners.length>=3) pts.push(pts[0].clone());
     traceGroup.add(new THREE.Line(new THREE.BufferGeometry().setFromPoints(pts),new THREE.LineBasicMaterial({color:0x35d6c0})));
   }
-  arPending.forEach(p=>traceGroup.add(mark(p.x,p.y,0xf4b13c)));
+  arPending.forEach(p=>traceGroup.add(mark(p.x,p.h??.02,p.y,0xf4b13c)));
 }
 function clampH(v){ return Math.min(Math.max(parseFloat(v)||2.4,1),6); }
 
