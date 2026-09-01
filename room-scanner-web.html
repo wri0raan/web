@@ -29,6 +29,22 @@
   .btn.danger{color:var(--danger);border-color:#3a2630;background:transparent;}
   .row{display:flex;gap:8px;}
   .row .btn{flex:1;padding:12px 8px;font-size:14px;}
+  .chips{display:flex;flex-wrap:wrap;gap:6px;justify-content:center;}
+  .chip{font:inherit;font-size:12.5px;font-weight:600;padding:8px 13px;border-radius:999px;
+    border:1px solid var(--line);background:rgba(15,23,32,.72);color:var(--muted);}
+  .chip:active{transform:translateY(1px);}
+  .chip.on{color:var(--measure);border-color:rgba(53,214,192,.55);background:rgba(53,214,192,.12);}
+  .chip.whl{display:flex;align-items:center;gap:5px;}
+  .chip.whl input{width:46px;background:transparent;border:none;color:var(--ink);font:inherit;font-size:14px;text-align:center;padding:0;}
+  .primary{display:flex;align-items:stretch;gap:10px;}
+  .pbtn{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+    font:inherit;font-weight:700;border-radius:16px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:11px 8px;}
+  .pbtn:active{transform:translateY(1px);}
+  .pbtn .big{font-size:22px;line-height:1;}
+  .pbtn small{font-size:11px;font-weight:600;color:var(--muted);}
+  .pbtn.add{flex:1.7;background:var(--measure);border-color:var(--measure);color:var(--measure-ink);}
+  .pbtn.add .big{font-size:26px;}
+  .pbtn.add small{color:rgba(4,33,29,.72);}
 
   /* ---- 인트로 / 모드 선택 ---- */
   #intro{position:fixed;inset:0;display:flex;flex-direction:column;justify-content:center;gap:22px;
@@ -120,23 +136,17 @@
 <div id="arScreen" class="screen">
   <div id="hud">
     <div class="status" id="arStatus">바닥을 천천히 비춰줘…</div>
-    <div class="hbox">
-      <span id="arModeTag" style="color:var(--measure);font-weight:700;">방 외곽선</span>
-      <span>·</span><span>벽 높이(m)</span>
-      <input id="arWallH" type="number" value="2.4" min="1" max="6" step="0.05" inputmode="decimal">
+    <div class="chips">
+      <button id="arMode" class="chip">방 외곽선</button>
+      <button id="arPlane" class="chip on">평면 표시</button>
+      <button id="arAutoFloor" class="chip">바닥 자동</button>
+      <button id="arClear" class="chip">지우기</button>
+      <label class="chip whl">벽 <input id="arWallH" type="number" value="2.4" min="1" max="6" step="0.05" inputmode="decimal"> m</label>
     </div>
-    <div class="row">
-      <button id="arAdd" class="btn measure">추가</button>
-      <button id="arUndo" class="btn">되돌리기</button>
-      <button id="arMode" class="btn">모드 전환</button>
-    </div>
-    <div class="row">
-      <button id="arPlane" class="btn">감지 평면: 켜짐</button>
-      <button id="arAutoFloor" class="btn">바닥 자동</button>
-    </div>
-    <div class="row">
-      <button id="arBuild" class="btn">완성 · 도면</button>
-      <button id="arClear" class="btn ghost">전체 지우기</button>
+    <div class="primary">
+      <button id="arUndo" class="pbtn side"><span class="big">↶</span><small>되돌리기</small></button>
+      <button id="arAdd" class="pbtn add"><span class="big">＋</span><small>추가</small></button>
+      <button id="arBuild" class="pbtn side"><span class="big">✓</span><small>완성·도면</small></button>
     </div>
   </div>
 </div>
@@ -249,11 +259,12 @@ function showResult(corners, objects, h, source){
   lastResult = {corners, objects, h, source};
   drawPlan(corners, objects);
   const area = polygonArea(corners);
+  let perim=0; for(let i=0;i<corners.length;i++) perim+=dist(corners[i],corners[(i+1)%corners.length]);
   const scaleNote = source==='ar'
     ? 'ARCore 실측 스케일(1:1). 트래킹 상태 따라 오차 있음.'
     : '기준물 보정 실측 스케일. 바닥이 한 평면·모든 모서리가 사진에 보일 때 정확.';
   $('summary').innerHTML =
-    `면적 <b>${area.toFixed(2)} m²</b> · 코너 ${corners.length} · 물체 ${objects.length} · 벽높이 ${h.toFixed(2)}m<br>`+
+    `면적 <b>${area.toFixed(2)} m²</b> · 둘레 <b>${perim.toFixed(2)} m</b> · 코너 ${corners.length} · 물체 ${objects.length} · 벽높이 ${h.toFixed(2)}m<br>`+
     `<span style="color:#5f7488">※ ${scaleNote}</span>`;
   $('sheet').style.display='flex';
 }
@@ -373,9 +384,11 @@ async function startAR(){
   hitTestSource=await xrSession.requestHitTestSource({space:vs});
   xrSession.addEventListener('end',onAREnd);
 
-  arCorners=[];arObjects=[];arPending=[];arMode='room';arCornerAnchors=[];arPlaceReq=false;
+  arCorners=[];arObjects=[];arPending=[];arMode='room';arCornerAnchors=[];arPlaceReq=false;showPlanes=true;
+  $('arMode').textContent='방 외곽선'; $('arMode').classList.remove('on');
+  $('arPlane').classList.add('on');
   enterScreen('ar','실시간 AR <small>1:1 실측</small>');
-  setStatusAll('흰 원(조준점)을 바닥 모서리에 겨누고 "추가"를 눌러.');
+  setStatusAll('흰 원(조준점)을 벽·바닥 모서리에 대고 "추가"를 눌러.');
   renderer.setAnimationLoop(onARFrame);
 }
 function onAREnd(){
@@ -475,11 +488,12 @@ $('arUndo').addEventListener('click',()=>{
 });
 $('arMode').addEventListener('click',()=>{
   arMode=arMode==='room'?'object':'room'; arPending=[];
-  $('arModeTag').textContent=arMode==='room'?'방 외곽선':'물체 배치';
+  $('arMode').textContent=arMode==='room'?'방 외곽선':'물체 배치';
+  $('arMode').classList.toggle('on', arMode==='object');
   setStatusAll(arMode==='room'?'방 모서리 모드':'물체: 바닥 두 점(대각)');
 });
 $('arClear').addEventListener('click',()=>{ arCornerAnchors.forEach(a=>{if(a&&a.delete)a.delete();}); arCorners=[];arObjects=[];arPending=[];arCornerAnchors=[]; buildGroup.clear(); refreshARTrace(); setStatusAll('전부 지웠어.'); });
-$('arPlane').addEventListener('click',()=>{ showPlanes=!showPlanes; $('arPlane').textContent='감지 평면: '+(showPlanes?'켜짐':'꺼짐'); });
+$('arPlane').addEventListener('click',()=>{ showPlanes=!showPlanes; $('arPlane').classList.toggle('on', showPlanes); });
 $('arAutoFloor').addEventListener('click',autoFillFloor);
 $('arBuild').addEventListener('click',()=>{
   if(arCorners.length<3){ setStatusAll('코너 최소 3개.'); return; }
