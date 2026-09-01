@@ -90,6 +90,9 @@
   #crosshair::before,#crosshair::after{content:"";position:absolute;background:rgba(255,255,255,.9);box-shadow:0 0 2px rgba(0,0,0,.6);}
   #crosshair::before{left:11px;top:0;width:4px;height:26px;border-radius:2px;}
   #crosshair::after{top:11px;left:0;height:4px;width:26px;border-radius:2px;}
+  #arDist{position:fixed;left:50%;top:calc(50% + 24px);transform:translateX(-50%);z-index:23;display:none;
+    pointer-events:none;font-family:var(--disp);font-weight:600;font-size:15px;color:#fff;
+    background:rgba(255,90,90,.92);padding:3px 10px;border-radius:999px;box-shadow:0 1px 4px rgba(0,0,0,.5);}
 </style>
 </head>
 <body>
@@ -124,6 +127,7 @@
 <!-- ============ AR 화면 (three.js가 캔버스 생성) ============ -->
 <div id="arScreen" class="screen">
   <div id="crosshair" aria-hidden="true"></div>
+  <div id="arDist"></div>
   <div id="hud">
     <div class="status" id="arStatus">바닥을 천천히 비춰줘…</div>
     <div class="hbox">
@@ -335,7 +339,7 @@ function backToIntro(){
    모드 1: WebXR AR (안드로이드/갤럭시)
    ====================================================================== */
 let renderer,scene,camera,reticle,hitTestSource=null,reticleVisible=false,xrSession=null;
-let traceGroup,buildGroup,planesGroup;
+let traceGroup,buildGroup,planesGroup,arLive=null,arLastHit=null;
 const planeMap=new Map(); let showPlanes=true;
 let arCorners=[], arObjects=[], arPending=[], arMode='room';
 
@@ -356,6 +360,7 @@ async function startAR(){
   const rdot=new THREE.Mesh(new THREE.CircleGeometry(0.013,24).rotateX(-Math.PI/2),
     new THREE.MeshBasicMaterial({color:0xff5a5a})); rdot.position.y=0.002; reticle.add(rdot);
   reticle.matrixAutoUpdate=false; reticle.visible=false; scene.add(reticle);
+  arLive=new THREE.Line(new THREE.BufferGeometry(),new THREE.LineBasicMaterial({color:0xff5a5a})); arLive.frustumCulled=false; arLive.visible=false; scene.add(arLive);
   traceGroup=new THREE.Group(); buildGroup=new THREE.Group(); planesGroup=new THREE.Group();
   scene.add(traceGroup,buildGroup,planesGroup);
 
@@ -388,13 +393,27 @@ function onARFrame(t,frame){
   if(frame && hitTestSource){
     const ref=renderer.xr.getReferenceSpace();
     const hits=frame.getHitTestResults(hitTestSource);
-    if(hits.length){ const p=hits[0].getPose(ref); reticle.visible=true; reticle.matrix.fromArray(p.transform.matrix); reticleVisible=true; }
-    else { reticle.visible=false; reticleVisible=false; }
+    if(hits.length){
+      const p=hits[0].getPose(ref); reticle.visible=true;
+      reticle.matrix.fromArray(p.transform.matrix); reticleVisible=true;
+      arLastHit={x:p.transform.position.x, y:p.transform.position.z};
+    } else { reticle.visible=false; reticleVisible=false; arLastHit=null; }
+    updateLive();
     updatePlanes(frame,ref); planesGroup.visible=showPlanes;
   }
   renderer.render(scene,camera);
 }
-function reticleXY(){ const p=new THREE.Vector3().setFromMatrixPosition(reticle.matrix); return {x:p.x,y:p.z}; }
+// 애플 측정처럼: 직전 점 → 현재 조준점 실시간 선 + 거리
+function updateLive(){
+  const anchor = (arMode==='object'&&arPending.length===1)?arPending[0]
+               : (arMode==='room'&&arCorners.length>=1)?arCorners[arCorners.length-1]:null;
+  if(anchor && reticleVisible && arLastHit){
+    const a=new THREE.Vector3(anchor.x,.02,anchor.y), b=new THREE.Vector3(arLastHit.x,.02,arLastHit.y);
+    arLive.geometry.setFromPoints([a,b]); arLive.visible=true;
+    const d=Math.hypot(a.x-b.x, a.z-b.z);
+    const el=$('arDist'); el.textContent = d<1?`${Math.round(d*100)} cm`:`${d.toFixed(2)} m`; el.style.display='block';
+  } else { arLive.visible=false; $('arDist').style.display='none'; }
+}
 function refreshARTrace(){
   traceGroup.clear();
   const mark=(x,y,c)=>{
@@ -414,8 +433,8 @@ function refreshARTrace(){
 function clampH(v){ return Math.min(Math.max(parseFloat(v)||2.4,1),6); }
 
 $('arAdd').addEventListener('click',()=>{
-  if(!reticleVisible){ setStatusAll('바닥이 아직 안 잡혔어.'); return; }
-  const p=reticleXY();
+  if(!reticleVisible || !arLastHit){ setStatusAll('바닥이 아직 안 잡혔어.'); return; }
+  const p={x:arLastHit.x, y:arLastHit.y};
   if(arMode==='room'){ arCorners.push(p); refreshARTrace();
     if(arCorners.length>=2) setStatusAll(`코너 ${arCorners.length} · 방금 벽 ${dist(arCorners.at(-2),arCorners.at(-1)).toFixed(2)}m`);
     else setStatusAll(`코너 ${arCorners.length} · 다음 모서리로 이동`);
