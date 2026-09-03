@@ -53,7 +53,7 @@
   .brand .v{font-family:var(--disp);font-size:13px;color:var(--measure);border:1px solid var(--line);border-radius:20px;padding:2px 9px;}
   #intro p.lede{margin:0;color:var(--muted);font-size:14px;line-height:1.65;max-width:360px;}
   .modes{display:flex;flex-direction:column;gap:12px;}
-  .mode{display:flex;gap:14px;align-items:flex-start;text-align:left;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);width:100%;}
+  .mode{display:flex;gap:14px;align-items:flex-start;text-align:left;padding:16px;border:1px solid var(--line);border-radius:16px;background:var(--surface);color:var(--ink);width:100%;}
   .mode:disabled{opacity:.45;}
   .mode .tick{width:38px;height:38px;border-radius:11px;flex:none;display:grid;place-items:center;font-size:19px;}
   .mode.ar .tick{background:rgba(53,214,192,.14);color:var(--measure);}
@@ -103,13 +103,13 @@
 <!-- ===== 인트로 ===== -->
 <div id="intro">
   <div class="brand"><h1>공간 스캐너</h1><span class="v">웹 · 무료</span></div>
-  <p class="lede">방을 실제 크기(1:1)로 재서 3D·2D 도면을 만들고, 완성된 맵 위에 가구를 배치해봐.</p>
+  <p class="lede">방을 실제 크기(1:1)로 측정해 3D·2D 도면을 만들고, 완성된 맵 위에 가구를 배치해 보세요.</p>
   <div class="modes">
-    <button id="modeAR" class="mode ar" disabled><span class="tick">◎</span><span><span class="t">실시간 AR 스캔</span><span class="d">폰을 움직여 벽·바닥을 실측. 안드로이드(갤럭시) 크롬 전용.</span></span></button>
-    <button id="modePhoto" class="mode photo"><span class="tick">▦</span><span><span class="t">사진 실측 도면</span><span class="d">사진 + 기준물(A4)로 미터 단위 도면. 아이폰 포함 모든 기기.</span></span></button>
-    <button id="modePlace" class="mode place" disabled><span class="tick">🛋</span><span><span class="t">가구 배치 (AR)</span><span class="d">실제 공간에 가구를 놓아보기. 안드로이드 크롬 전용.</span></span></button>
+    <button id="modeAR" class="mode ar" disabled><span class="tick">◎</span><span><span class="t">실시간 AR 스캔</span><span class="d">휴대폰을 움직여 벽·바닥을 실측합니다. 안드로이드(갤럭시) 크롬 전용.</span></span></button>
+    <button id="modePhoto" class="mode photo"><span class="tick">▦</span><span><span class="t">사진 실측 도면</span><span class="d">사진과 기준물(A4)로 미터 단위 도면을 만듭니다. 아이폰 포함 모든 기기.</span></span></button>
+    <button id="modePlace" class="mode place" disabled><span class="tick">🛋</span><span><span class="t">가구 배치 (AR)</span><span class="d">실제 공간에 가구를 배치해 봅니다. 안드로이드 크롬 전용.</span></span></button>
   </div>
-  <div id="capNote">기기 확인 중…</div>
+  <div id="capNote">기기를 확인하고 있습니다…</div>
 </div>
 
 <!-- ===== 상단바 ===== -->
@@ -126,7 +126,7 @@
 <div id="arScreen" class="screen">
   <!-- 외곽선 단계 HUD -->
   <div id="hud">
-    <div class="status" id="arStatus">바닥을 천천히 비춰줘…</div>
+    <div class="status" id="arStatus">바닥을 천천히 비춰 주세요…</div>
     <div id="outlineTools">
       <div class="chips" style="margin-bottom:9px">
         <button id="arPlane" class="chip on">평면 표시</button>
@@ -165,7 +165,7 @@
 <div id="photoScreen" class="screen">
   <div id="photoStage"><canvas id="photoCanvas"></canvas></div>
   <div id="photoUI">
-    <div class="status" id="phStatus">사진을 먼저 불러와줘.</div>
+    <div class="status" id="phStatus">사진을 먼저 불러와 주세요.</div>
     <div class="hbox" id="calibRow">
       <span>기준물</span>
       <select id="refPreset">
@@ -263,7 +263,7 @@ function showResult(corners,objects,h,source){
   lastResult={corners,objects,h,source}; savedOnce=false; $('placeRow').style.display='none';
   drawPlan($('plan'),corners,objects);
   const area=polygonArea(corners); let perim=0; for(let i=0;i<corners.length;i++)perim+=dist(corners[i],corners[(i+1)%corners.length]);
-  const note=source==='ar'?'ARCore 실측(1:1). 트래킹 상태 따라 오차.':'기준물 보정 실측. 바닥이 한 평면·모든 모서리가 사진에 보일 때 정확.';
+  const note=source==='ar'?'ARCore 실측(1:1)입니다. 트래킹 상태에 따라 오차가 있을 수 있어요.':'기준물 보정 실측입니다. 바닥이 한 평면이고 모든 모서리가 사진에 보일 때 정확합니다.';
   $('summary').innerHTML=`면적 <b>${area.toFixed(2)} m²</b> · 둘레 <b>${perim.toFixed(2)} m</b> · 코너 ${corners.length} · 가구 ${objects.length} · 벽높이 ${h.toFixed(2)}m<br><span style="color:#5f7488">※ ${note}</span>`;
   // AR 소스일 때만 이어서 배치 가능
   $('goPlace').parentElement.dataset.ar = (source==='ar')?'1':'0';
@@ -292,7 +292,7 @@ function drawPlan(svg,corners,objects){
 $('dlSvg').addEventListener('click',()=>{ afterSave(); download(new Blob([`<?xml version="1.0"?>\n`+$('plan').outerHTML],{type:'image/svg+xml'}),'floorplan.svg'); });
 $('dlJson').addEventListener('click',()=>{ afterSave(); const r=lastResult;
   download(new Blob([JSON.stringify({unit:'meters',height:r.h,corners:r.corners,objects:r.objects,area:polygonArea(r.corners),source:r.source},null,2)],{type:'application/json'}),'room.json'); });
-$('dlGlb').addEventListener('click',()=>{ const r=lastResult; if(!r||r.corners.length<3){setStatusAll('먼저 도면을 만들어줘.');return;}
+$('dlGlb').addEventListener('click',()=>{ const r=lastResult; if(!r||r.corners.length<3){setStatusAll('먼저 도면을 만들어 주세요.');return;}
   afterSave(); new GLTFExporter().parse(buildRoomGroup(r.corners,r.objects,r.h),res=>download(new Blob([res],{type:'model/gltf-binary'}),'room.glb'),e=>{},{binary:true}); });
 function afterSave(){ // 저장을 한 번이라도 하면 배치 버튼 노출 (AR 소스일 때만)
   if(savedOnce) return; savedOnce=true;
@@ -307,8 +307,8 @@ function setStatusAll(t){ $('arStatus').textContent=t; $('phStatus').textContent
   let arOK=false;
   if('xr' in navigator){ try{ arOK=await navigator.xr.isSessionSupported('immersive-ar'); }catch(e){} }
   if(arOK){ $('modeAR').disabled=false; $('modePlace').disabled=false;
-    $('capNote').innerHTML='이 기기는 <b>AR</b>가 돼. 정밀도가 제일 높아. 사진 방식도 쓸 수 있어.';
-  }else $('capNote').innerHTML='이 기기는 WebXR AR 미지원(아이폰/데스크톱). <b>사진 실측</b>으로 가면 무료로 미터 단위 도면이 나와.';
+    $('capNote').innerHTML='이 기기는 <b>AR</b>를 지원합니다. 정밀도가 가장 높아요. 사진 방식도 사용하실 수 있습니다.';
+  }else $('capNote').innerHTML='이 기기는 WebXR AR을 지원하지 않습니다(아이폰/데스크톱). <b>사진 실측</b>으로 무료로 미터 단위 도면을 만드실 수 있어요.';
 })();
 $('modeAR').addEventListener('click',()=>startAR('outline'));
 $('modePlace').addEventListener('click',()=>startAR('place'));
@@ -358,7 +358,7 @@ async function startAR(stage){
   try{
     xrSession=await navigator.xr.requestSession('immersive-ar',{
       requiredFeatures:['local-floor','hit-test'], optionalFeatures:['dom-overlay','plane-detection','anchors'], domOverlay:{root:document.body}});
-  }catch(e){ setStatusAll('세션 실패: '+e.message+' (HTTPS 필요)'); return; }
+  }catch(e){ setStatusAll('세션 시작에 실패했어요: '+e.message+' (HTTPS 환경이 필요합니다)'); return; }
   renderer.xr.setReferenceSpaceType('local-floor'); await renderer.xr.setSession(xrSession);
   const vs=await xrSession.requestReferenceSpace('viewer'); hitTestSource=await xrSession.requestHitTestSource({space:vs});
   xrSession.addEventListener('end',onAREnd);
@@ -375,9 +375,9 @@ function onAREnd(){ renderer.setAnimationLoop(null); hitTestSource=null; xrSessi
   if(renderer?.domElement) renderer.domElement.remove(); planeMap.clear(); close3D(); backToIntro(); }
 
 function enterOutlineStage(){ arStage='outline'; $('outlineTools').style.display=''; $('placeTools').style.display='none';
-  setStatusAll('흰 원을 벽·바닥 모서리에 대고 "코너 추가". 다 돌면 "맵 생성 완료".'); rebuildAR(); }
+  setStatusAll('흰 원을 벽·바닥 모서리에 맞추고 ‘코너 추가’를 누르세요. 한 바퀴 다 돌면 ‘맵 생성 완료’를 누르세요.'); rebuildAR(); }
 function enterPlaceStage(){ arStage='place'; $('outlineTools').style.display='none'; $('placeTools').style.display='';
-  customA=null; setStatusAll('가구를 고르고 "놓기". 커스텀 박스는 바닥 두 점을 찍어.'); rebuildAR(); }
+  customA=null; setStatusAll('가구를 고른 뒤 ‘놓기’를 누르세요. 커스텀 박스는 바닥 두 점을 찍으시면 됩니다.'); rebuildAR(); }
 
 function onARFrame(t,frame){
   if(frame && hitTestSource){
@@ -407,18 +407,18 @@ function onARFrame(t,frame){
 }
 
 /* --- 외곽선 배치 --- */
-$('arAdd').addEventListener('click',()=>{ if(!reticleVisible||!arLastHit){setStatusAll('바닥이 아직 안 잡혔어.');return;} arPlaceReq=true; });
+$('arAdd').addEventListener('click',()=>{ if(!reticleVisible||!arLastHit){setStatusAll('바닥이 아직 인식되지 않았어요.');return;} arPlaceReq=true; });
 function doPlaceCorner(hit){
   const idx=arCorners.length; arCorners.push({x:arLastHit.x,y:arLastHit.y,h:arLastHit.h}); arCornerAnchors.push(null); rebuildAR();
   if(hit.createAnchor) hit.createAnchor().then(a=>{if(idx<arCornerAnchors.length)arCornerAnchors[idx]=a;}).catch(()=>{});
   if(arCorners.length>=2) setStatusAll(`코너 ${arCorners.length} · 방금 벽 ${dist(arCorners[arCorners.length-2],arCorners[arCorners.length-1]).toFixed(2)}m`);
-  else setStatusAll(`코너 ${arCorners.length} · 다음 모서리로`);
+  else setStatusAll(`코너 ${arCorners.length} · 다음 모서리로 이동하세요`);
 }
-$('arUndo').addEventListener('click',()=>{ if(arCorners.length){arCorners.pop();const a=arCornerAnchors.pop();if(a&&a.delete)a.delete();} rebuildAR(); setStatusAll('되돌림'); });
-$('arClear').addEventListener('click',()=>{ arCornerAnchors.forEach(a=>{if(a&&a.delete)a.delete();}); arCorners=[];arCornerAnchors=[]; rebuildAR(); setStatusAll('외곽선 지웠어.'); });
+$('arUndo').addEventListener('click',()=>{ if(arCorners.length){arCorners.pop();const a=arCornerAnchors.pop();if(a&&a.delete)a.delete();} rebuildAR(); setStatusAll('되돌렸어요'); });
+$('arClear').addEventListener('click',()=>{ arCornerAnchors.forEach(a=>{if(a&&a.delete)a.delete();}); arCorners=[];arCornerAnchors=[]; rebuildAR(); setStatusAll('외곽선을 지웠어요.'); });
 $('arPlane').addEventListener('click',()=>{ showPlanes=!showPlanes; $('arPlane').classList.toggle('on',showPlanes); });
 $('arAutoFloor').addEventListener('click',autoFillFloor);
-$('arBuild').addEventListener('click',()=>{ if(arCorners.length<3){setStatusAll('코너 최소 3개.');return;}
+$('arBuild').addEventListener('click',()=>{ if(arCorners.length<3){setStatusAll('코너를 최소 3개 찍어 주세요.');return;}
   showResult(arCorners.map(c=>({...c})),arObjects.map(o=>({...o})),clampH($('arWallH').value),'ar'); });
 
 /* --- 가구 배치 --- */
@@ -426,16 +426,16 @@ function buildPalette(){ const p=$('palette'); p.innerHTML='';
   Object.keys(PRESETS).forEach(k=>{ const b=document.createElement('button'); b.className='chip'+(k===placeTool?' on':''); b.textContent=k; b.dataset.k=k;
     b.addEventListener('click',()=>{ placeTool=k; customA=null; [...p.children].forEach(c=>c.classList.toggle('on',c.dataset.k===k));
       $('objHrow').style.display=PRESETS[k].custom?'':'none';
-      setStatusAll(PRESETS[k].custom?'커스텀: 바닥 두 점(대각)을 찍어':`${k} 위치를 겨누고 "놓기"`); });
+      setStatusAll(PRESETS[k].custom?'커스텀: 바닥 두 점(대각)을 찍어 주세요':`${k} 위치를 겨누고 ‘놓기’를 누르세요`); });
     p.appendChild(b); });
   $('objHrow').style.display=PRESETS[placeTool].custom?'':'none';
 }
 $('objRotate').addEventListener('click',()=>{ objRot=(objRot+Math.PI/4)%(Math.PI*2); });
-$('objAdd').addEventListener('click',()=>{ if(!reticleVisible||!arLastHit){setStatusAll('바닥이 아직 안 잡혔어.');return;} arObjReq=true; });
+$('objAdd').addEventListener('click',()=>{ if(!reticleVisible||!arLastHit){setStatusAll('바닥이 아직 인식되지 않았어요.');return;} arObjReq=true; });
 function doPlaceObject(hit){
   const pr=PRESETS[placeTool];
   if(pr.custom){
-    if(!customA){ customA={x:arLastHit.x,y:arLastHit.y}; setStatusAll('반대편 모서리를 찍어'); return; }
+    if(!customA){ customA={x:arLastHit.x,y:arLastHit.y}; setStatusAll('반대편 모서리를 찍어 주세요'); return; }
     const b={x:arLastHit.x,y:arLastHit.y}; const o={type:'커스텀',cx:(customA.x+b.x)/2,cy:(customA.y+b.y)/2,
       w:Math.max(Math.abs(b.x-customA.x),.05),d:Math.max(Math.abs(b.y-customA.y),.05),h:clampH2($('objH').value),rot:0,color:pr.c};
     pushObject(o,hit); customA=null;
@@ -446,10 +446,10 @@ function doPlaceObject(hit){
 }
 function pushObject(o,hit){ const idx=arObjects.length; arObjects.push(o); arObjectAnchors.push(null); rebuildAR();
   if(hit.createAnchor) hit.createAnchor().then(a=>{if(idx<arObjectAnchors.length)arObjectAnchors[idx]=a;}).catch(()=>{});
-  setStatusAll(`가구 ${arObjects.length}개 배치됨`); }
-$('objUndo').addEventListener('click',()=>{ if(customA){customA=null;setStatusAll('취소');return;}
-  if(arObjects.length){arObjects.pop();const a=arObjectAnchors.pop();if(a&&a.delete)a.delete();} rebuildAR(); setStatusAll('되돌림'); });
-$('objClear').addEventListener('click',()=>{ arObjectAnchors.forEach(a=>{if(a&&a.delete)a.delete();}); arObjects=[];arObjectAnchors=[];customA=null; rebuildAR(); setStatusAll('가구 비웠어.'); });
+  setStatusAll(`가구 ${arObjects.length}개를 배치했어요`); }
+$('objUndo').addEventListener('click',()=>{ if(customA){customA=null;setStatusAll('취소했어요');return;}
+  if(arObjects.length){arObjects.pop();const a=arObjectAnchors.pop();if(a&&a.delete)a.delete();} rebuildAR(); setStatusAll('되돌렸어요'); });
+$('objClear').addEventListener('click',()=>{ arObjectAnchors.forEach(a=>{if(a&&a.delete)a.delete();}); arObjects=[];arObjectAnchors=[];customA=null; rebuildAR(); setStatusAll('가구를 비웠어요.'); });
 $('objDone').addEventListener('click',()=>{ showResult(arCorners.map(c=>({...c})),arObjects.map(o=>({...o})),clampH($('arWallH').value),'ar'); });
 
 /* --- 씬 재구성 --- */
@@ -511,10 +511,10 @@ function updatePlanes(frame,ref){ const det=frame.detectedPlanes; if(!det)return
 function autoFillFloor(){ let best=null,bestA=0;
   for(const rec of planeMap.values()){const u=rec.mesh.userData; if(u.orientation!=='horizontal'||u.avgY>0.6)continue;
     const a=polygonArea(u.worldPts.map(v=>({x:v.x,y:v.z}))); if(a>bestA){bestA=a;best=u;}}
-  if(!best){setStatusAll('감지된 바닥 평면이 없어. 더 비춰줘.');return;}
+  if(!best){setStatusAll('감지된 바닥 평면이 없어요. 조금 더 비춰 주세요.');return;}
   arCornerAnchors.forEach(a=>{if(a&&a.delete)a.delete();}); arCornerAnchors=[];
   arCorners=best.worldPts.map(v=>({x:v.x,y:v.z,h:0})); arCornerAnchors=arCorners.map(()=>null); rebuildAR();
-  setStatusAll(`바닥 자동 채움 · 코너 ${arCorners.length} (되돌리기로 다듬어)`);
+  setStatusAll(`바닥을 자동으로 채웠어요 · 코너 ${arCorners.length} (되돌리기로 다듬으세요)`);
 }
 function clampH(v){return Math.min(Math.max(parseFloat(v)||2.4,1),6);}
 function clampH2(v){return Math.min(Math.max(parseFloat(v)||0.5,0.05),3);}
@@ -538,7 +538,7 @@ function open3D(){ const host=$('view3d'); host.style.display='block';
       const dl=new THREE.DirectionalLight(0xffffff,.8); dl.position.set(3,5,2); orbitScene.add(dl);
       const grid=new THREE.GridHelper(20,20,0x1c2a38,0x14202c); orbitScene.add(grid);
       orbitCam=new THREE.PerspectiveCamera(55,1,0.01,100); orbitCtrl=new OrbitControls(orbitCam,orbitR.domElement);
-    }catch(e){ host.innerHTML='<div style="color:#8298ab;padding:40px;text-align:center;font-size:14px">이 기기에서 3D 뷰를 열 수 없어. 1인칭/2D를 써줘.</div>'; return; } }
+    }catch(e){ host.innerHTML='<div style="color:#8298ab;padding:40px;text-align:center;font-size:14px">이 기기에서는 3D 뷰를 열 수 없어요. 1인칭이나 2D를 사용해 주세요.</div>'; return; } }
   const w=host.clientWidth,h=host.clientHeight; orbitR.setSize(w,h); orbitCam.aspect=w/h; orbitCam.updateProjectionMatrix();
   orbitScene.children.filter(c=>c.userData.room).forEach(c=>orbitScene.remove(c));
   const g=buildRoomGroup(arCorners,arObjects,clampH($('arWallH').value)); g.userData.room=true; orbitScene.add(g);
@@ -557,13 +557,13 @@ const cv=$('photoCanvas'),ctx=cv.getContext('2d');
 let img=null,fit={ox:0,oy:0,scale:1},phStage='need-image',calibPts=[],tracePts=[],H=null,phCorners=[];
 function startPhoto(){ enterScreen('photo'); resetPhoto(); }
 function closePhoto(){ backToIntro(); }
-function resetPhoto(){ img=null;phStage='need-image';calibPts=[];tracePts=[];H=null;phCorners=[]; $('phBuild').disabled=true; updateSteps(); drawPhoto(); $('phStatus').textContent='사진을 불러와줘. (아이폰은 카메라로 바로 촬영)'; }
+function resetPhoto(){ img=null;phStage='need-image';calibPts=[];tracePts=[];H=null;phCorners=[]; $('phBuild').disabled=true; updateSteps(); drawPhoto(); $('phStatus').textContent='사진을 불러와 주세요. (아이폰은 카메라로 바로 촬영할 수 있어요)'; }
 $('refPreset').addEventListener('change',()=>{const c=$('refPreset').value==='custom'; $('refW').style.display=$('refH').style.display=c?'inline-block':'none';});
 $('phShot').addEventListener('click',()=>$('filePick').click());
-$('filePick').addEventListener('change',async e=>{ const f=e.target.files?.[0]; e.target.value=''; if(!f)return; $('phStatus').textContent='사진 불러오는 중…';
+$('filePick').addEventListener('change',async e=>{ const f=e.target.files?.[0]; e.target.value=''; if(!f)return; $('phStatus').textContent='사진을 불러오는 중이에요…';
   try{ img=await loadImageFile(f); phStage='calib';calibPts=[];tracePts=[];H=null;phCorners=[]; $('phBuild').disabled=true;
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{sizeCanvas();drawPhoto();})); updateSteps(); $('phStatus').textContent='기준물 네 모서리를 좌상→우상→우하→좌하 순서로 탭';
-  }catch(err){ $('phStatus').textContent='사진을 불러오지 못했어 ('+(err?.message||err)+'). 다른 사진/사파리로 시도.'; } });
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{sizeCanvas();drawPhoto();})); updateSteps(); $('phStatus').textContent='기준물의 네 모서리를 좌상→우상→우하→좌하 순서로 탭해 주세요';
+  }catch(err){ $('phStatus').textContent='사진을 불러오지 못했어요 ('+(err?.message||err)+'). 다른 사진이나 사파리에서 시도해 주세요.'; } });
 async function loadImageFile(f){ if('createImageBitmap' in window){ try{return await createImageBitmap(f,{imageOrientation:'from-image'});}catch(_){try{return await createImageBitmap(f);}catch(__){}} }
   const d=await new Promise((res,rej)=>{const r=new FileReader();r.onload=()=>res(r.result);r.onerror=()=>rej(new Error('read fail'));r.readAsDataURL(f);});
   return await new Promise((res,rej)=>{const i=new Image();i.onload=()=>res(i);i.onerror=()=>rej(new Error('decode fail'));i.src=d;}); }
@@ -577,11 +577,11 @@ cv.addEventListener('pointerdown',ev=>{ if(!img)return; const r=cv.getBoundingCl
   if(p.x<0||p.y<0||p.x>img.width||p.y>img.height)return;
   if(phStage==='calib'){ if(calibPts.length<4){calibPts.push(p); if(calibPts.length===4)computeH(); else $('phStatus').textContent=`기준물 모서리 ${calibPts.length}/4`;} }
   else if(phStage==='trace'||phStage==='ready'){ tracePts.push(p); recomputeCorners();
-    $('phStatus').textContent=phCorners.length>=2?`방 코너 ${phCorners.length} · 방금 벽 ${dist(phCorners[phCorners.length-2],phCorners[phCorners.length-1]).toFixed(2)}m`:`방 코너 ${phCorners.length} · 계속 탭`;
+    $('phStatus').textContent=phCorners.length>=2?`방 코너 ${phCorners.length} · 방금 벽 ${dist(phCorners[phCorners.length-2],phCorners[phCorners.length-1]).toFixed(2)}m`:`방 코너 ${phCorners.length} · 계속 탭해 주세요`;
     $('phBuild').disabled=phCorners.length<3; }
   drawPhoto(); });
 function refDims(){ const v=$('refPreset').value; if(v==='custom'){return {w:(parseFloat($('refW').value)||21)/100,h:(parseFloat($('refH').value)||29.7)/100};} const [w,h]=v.split(',').map(Number); return {w,h}; }
-function computeH(){ const {w,h}=refDims(); const src=calibPts.map(p=>[p.x,p.y]); const dst=[[0,0],[w,0],[w,h],[0,h]]; H=solveHomography(src,dst); phStage='trace'; updateSteps(); $('phStatus').textContent='보정 완료 ✓ 방 바닥 모서리를 순서대로 탭'; }
+function computeH(){ const {w,h}=refDims(); const src=calibPts.map(p=>[p.x,p.y]); const dst=[[0,0],[w,0],[w,h],[0,h]]; H=solveHomography(src,dst); phStage='trace'; updateSteps(); $('phStatus').textContent='보정 완료 ✓ 방 바닥 모서리를 순서대로 탭해 주세요'; }
 function recomputeCorners(){ phCorners=tracePts.map(p=>applyH(H,p.x,p.y)); }
 $('phUndo').addEventListener('click',()=>{ if(phStage==='calib'&&calibPts.length)calibPts.pop(); else if(tracePts.length){tracePts.pop();recomputeCorners();$('phBuild').disabled=phCorners.length<3;} drawPhoto(); });
 $('phReset').addEventListener('click',resetPhoto);
